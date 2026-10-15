@@ -1,0 +1,19 @@
+# Secretos: contiene la DATABASE_URL real. Subirlo expone tu base de datos.
+.env
+
+# Dependencias vendidas: se regeneran con setup_packages.py
+.site/
+.wheels/
+.packages/
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+*.log
