@@ -12,7 +12,7 @@ from .schemas import SaleCreate, SaleUpdate
 
 TABLE = "sales"
 
-_STORED_COLUMNS = "id, name, quantity, cost, sale_price, sold_at, created_at"
+_STORED_COLUMNS = "id, name, quantity, unit, cost, sale_price, sold_at, created_at"
 
 # Totals and margin are computed in SQL so every consumer gets identical
 # rounding. `cost` and `sale_price` are per-unit.
@@ -62,12 +62,13 @@ async def create_sale(payload: SaleCreate) -> dict[str, Any]:
     """Insert a sale. `sold_at` defaults to today when omitted."""
     row = await pool().fetchrow(
         f"""
-        INSERT INTO {TABLE} (name, quantity, cost, sale_price, sold_at)
-        VALUES ($1, $2, $3, $4, COALESCE($5, CURRENT_DATE))
+        INSERT INTO {TABLE} (name, quantity, unit, cost, sale_price, sold_at)
+        VALUES ($1, $2, $3, $4, $5, COALESCE($6, CURRENT_DATE))
         RETURNING {_STORED_COLUMNS}
         """,
         payload.name,
         payload.quantity,
+        payload.unit,
         payload.cost,
         payload.sale_price,
         payload.sold_at,

@@ -11,7 +11,8 @@ from .schemas import ItemCreate, ItemUpdate
 
 TABLE = "shopping_items"
 
-_COLUMNS = "id, name, quantity, is_completed, created_at, price, cost"
+# `price` es el precio de COMPRA. El precio de venta vive en la tabla `sales`.
+_COLUMNS = "id, name, quantity, unit, is_completed, created_at, price"
 
 
 def _row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
@@ -50,14 +51,14 @@ async def create_item(payload: ItemCreate) -> dict[str, Any]:
     """Insert a new item and return the stored row."""
     row = await pool().fetchrow(
         f"""
-        INSERT INTO {TABLE} (name, quantity, price, cost, is_completed)
+        INSERT INTO {TABLE} (name, quantity, price, unit, is_completed)
         VALUES ($1, $2, $3, $4, $5)
         RETURNING {_COLUMNS}
         """,
         payload.name,
         payload.quantity,
         payload.price,
-        payload.cost,
+        payload.unit,
         payload.is_completed,
     )
     assert row is not None  # RETURNING always yields a row on success

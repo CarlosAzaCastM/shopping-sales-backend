@@ -2,26 +2,53 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from .. import crud
-from ..database import get_server_version, pool
+from ..database import database_target, get_server_version, ping
 from ..schemas import Health, Item, ItemCreate, ItemUpdate
 
 router = APIRouter(prefix="/api", tags=["items"])
 
 
 @router.get("/health", response_model=Health)
-async def health() -> Health:
-    """Liveness + database reachability probe."""
+async def health(response: Response) -> Health:
+    """Liveness + database reachability probe.
+
+    Always returns 200 with a JSON body so it is easy to read from a browser or
+    the Cloudflare proxy, and reports exactly which host we are talking to
+    (never the password) so a bad DATABASE_URL is obvious.
+    """
+    target = database_target()
+    reachable, error = await ping()
+
     version: str | None = None
-    try:
-        await pool().fetchval("SELECT 1")
+    if reachable:
+        try:
+            version = await get_server_version()
+        except Exception:  # noqa: BLE001 - not worth failing health over
+            version = None
+
+    if reachable:
         db_status = "ok"
-        version = await get_server_version()
-    except Exception as exc:  # noqa: BLE001 - report any driver/network error
-        db_status = f"error: {exc.__class__.__name__}"
-    return Health(status="ok", database=db_status, server_version=version)
+    elif not target["configured"]:
+        db_status = "error: DATABASE_URL is not set"
+    else:
+        db_status = f"error: {error}"
+
+    if not reachable:
+        # Surface the real state in the HTTP status too, for uptime monitors.
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+
+    return Health(
+        status="ok",
+        database=db_status,
+        server_version=version,
+        database_host=target["host"],
+        database_port=target["port"],
+        database_name=target["database"],
+        database_kind=target["kind"],
+    )
 
 
 @router.get("/items", response_model=list[Item])
